@@ -7,16 +7,35 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from "react-native";
 import DateTimePickerModal from "react-native-modal-datetime-picker";
 import { Ionicons } from "@expo/vector-icons";
 
+import {
+  CameraType,
+  launchCameraAsync,
+  requestCameraPermissionsAsync,
+} from "expo-image-picker";
+
 import { getFormattedDateFull } from "../helpers/date";
 
-const Signup = () => {
+import {
+  attemptToSendUsersData,
+  attemptToSignup,
+  attemptToUploadImage,
+} from "../services/signup-service";
+
+const Signup = ({ navigation }) => {
   const [isDatePickerVisible, setDatePickerVisibility] = useState(false);
   const [dobValue, setDobValue] = useState("");
   const [gender, setGender] = useState("Female");
+  const [isLoading, setIsLoading] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [profileImage, setProfileImage] = useState("");
 
   const inputStyle = "border-b-2 border-b-red-300 p-2 rounded-md my-2";
 
@@ -33,7 +52,6 @@ const Signup = () => {
     setDobValue(date.toString());
     hideDatePicker();
   };
-
   const onFemalePressed = () => {
     setGender("Female");
   };
@@ -42,22 +60,83 @@ const Signup = () => {
     setGender("Male");
   };
 
+  const onSignupPressed = async () => {
+    setIsLoading(true);
+
+    let authResponse = await attemptToSignup(email, password);
+
+    const userUid = authResponse.user.uid;
+
+    await attemptToSendUsersData(
+      userUid,
+      firstName,
+      lastName,
+      dobValue,
+      gender,
+      email
+    );
+
+    await attemptToUploadImage(userUid, profileImage);
+
+    setIsLoading(false);
+    navigation.replace("Home");
+  };
+
+  const onProfilePicPressed = async () => {
+    try {
+      const result = await launchCameraAsync({
+        cameraType: CameraType.front,
+      });
+      if (result.canceled === false) {
+        setProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      alert(error.message);
+      if (error.message.includes("permission")) {
+        requestCameraPermissionsAsync();
+      }
+    }
+  };
+
   return (
     <View className={"flex flex-1 "}>
       <View className={"flex-1 items-center justify-end"}>
-        <TouchableOpacity>
-          <Image
-            source={require("../../assets/icon.png")}
-            className={"h-24 w-24 rounded-full"}
-          />
+        <TouchableOpacity onPress={onProfilePicPressed}>
+          {profileImage ? (
+            <Image
+              source={{ uri: profileImage }}
+              className={"h-24 w-24 rounded-full"}
+            />
+          ) : (
+            <Image
+              source={require("../../assets/icon.png")}
+              className={"h-24 w-24 rounded-full"}
+            />
+          )}
         </TouchableOpacity>
       </View>
 
       <View className={"flex-auto  px-5 "}>
-        <TextInput placeholder="First Name" className={inputStyle} />
-        <TextInput placeholder="Last Name" className={inputStyle} />
-        <TextInput placeholder="Email" className={inputStyle} />
-        <TextInput placeholder="Password" className={inputStyle} />
+        <TextInput
+          placeholder="First Name"
+          onChangeText={setFirstName}
+          className={inputStyle}
+        />
+        <TextInput
+          placeholder="Last Name"
+          onChangeText={setLastName}
+          className={inputStyle}
+        />
+        <TextInput
+          placeholder="Email"
+          onChangeText={setEmail}
+          className={inputStyle}
+        />
+        <TextInput
+          placeholder="Password"
+          onChangeText={setPassword}
+          className={inputStyle}
+        />
         <TextInput placeholder="Confirm Password" className={inputStyle} />
 
         <Pressable className={inputStyle} onPress={showDatePicker}>
@@ -98,8 +177,19 @@ const Signup = () => {
       </View>
 
       <View className={"flex-none p-5"}>
-        <TouchableOpacity className={"p-5 bg-red-300 rounded-md items-center"}>
-          <Text className={"text-lg text-orange-800"}>Sign up</Text>
+        <TouchableOpacity
+          onPress={onSignupPressed}
+          className={
+            "flex flex-row justify-center p-5 bg-red-300 rounded-md items-center"
+          }
+        >
+          {isLoading === true ? (
+            <ActivityIndicator size={"large"} color={"white"} />
+          ) : null}
+
+          <Text className={"text-lg text-orange-800"}>
+            {isLoading === true ? "Wait" : "Sign up"}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -108,7 +198,7 @@ const Signup = () => {
         mode="date"
         onConfirm={handleConfirm}
         onCancel={hideDatePicker}
-        // maximumDate={new Date("1990")}
+        maximumDate={new Date("1990")}
       />
     </View>
   );
