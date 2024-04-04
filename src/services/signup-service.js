@@ -16,7 +16,7 @@ async function attemptToSignup(email, password) {
   } catch (error) {
     let message = "";
     if (error.message.includes("email-already-in-use")) {
-      message = "yara ap na ya email already use kra h";
+      message = "use already";
     }
     alert(message);
     console.error(error);
